@@ -7,7 +7,7 @@ import { ConfigService } from './config.service';
 @Module({
   imports: [
     NestConfigModule.forRoot({
-      isGlobal: true, // Makes the ConfigModule available everywhere
+      isGlobal: true, 
       envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
       validationSchema: Joi.object({
         NODE_ENV: Joi.string()
