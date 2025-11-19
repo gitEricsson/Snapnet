@@ -75,8 +75,6 @@ export class JwtTokenService {
 
     const newAccessToken = await this.generateAccessToken(payload);
 
-    await this.redisService.setUserOnline(userId);
-
     return { accessToken: newAccessToken };
   }
 
