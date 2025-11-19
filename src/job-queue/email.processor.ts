@@ -4,7 +4,7 @@ import { EmailService } from '../email/email.service';
 import { RedisService } from '../redis/redis.service';
 import { ProducerService } from './producer.service';
 import { RetryService } from './retry.service';
-import { ConfigService } from '@nestjs/config';
+import { ConfigService } from '../utils/common/config/config.service';
 
 interface UserRegisteredMsg {
   userId: string;
