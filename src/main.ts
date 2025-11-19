@@ -23,8 +23,8 @@ async function bootstrap() {
       },
     }),
   );
-  app.useGlobalInterceptors(app.get(TransformInterceptor));
-  app.useGlobalFilters(app.get(HttpExceptionFilter));
+  // app.useGlobalInterceptors(app.get(TransformInterceptor));
+  // app.useGlobalFilters(app.get(HttpExceptionFilter));
 
   const config = new DocumentBuilder()
     .setTitle('Workforce Management API')

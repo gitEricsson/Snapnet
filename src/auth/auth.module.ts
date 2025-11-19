@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './auth.controller';
@@ -9,27 +9,26 @@ import { UtilsModule } from '../utils/utils.module';
 import { JwtTokenModule } from '../jwt-token/jwt-token.module';
 import { RedisModule } from '../redis/redis.module';
 import { RolesGuard } from '../guards/roles.guard';
+import { MessagingModule } from '../job-queue/messaging.module';
 
 @Module({
   imports: [
-    BaseUserModule, // Import UsersModule to use UsersService
-    JwtTokenModule, // Import JwtTokenModule for token management
-    RedisModule, // Import RedisModule for caching and token storage
-    UtilsModule, // Utils for hashing
+    BaseUserModule,
+    JwtTokenModule,
+    RedisModule,
+    UtilsModule,
     ConfigModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }), // Register PassportModule
+    forwardRef(() => MessagingModule),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     {
       provide: APP_GUARD,
-      useClass: RolesGuard, // Apply RolesGuard globally to all routes
+      useClass: RolesGuard,
     },
   ],
-  exports: [
-    AuthService, // Export AuthService for use in other modules
-    // Note: We don't need to export RolesGuard here since it's provided via APP_GUARD
-  ]
+  exports: [AuthService]
 })
 export class AuthModule {}

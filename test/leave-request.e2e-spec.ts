@@ -12,8 +12,8 @@ import { LeaveStatus } from '../src/utils/common/constant/enum.constant';
 describe('LeaveRequest (e2e)', () => {
   let app: INestApplication;
   const mockJwtAuthGuard = {
-  canActivate: jest.fn(() => true),
-};
+    canActivate: jest.fn(() => true),
+  };
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
