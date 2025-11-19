@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DepartmentRepository } from './department.repository';
 import { EmployeeRepository } from '../employee/employee.repository';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -9,6 +9,7 @@ import { RedisService } from 'src/redis/redis.service';
 export class DepartmentService {
   constructor(
     private readonly departmentRepository: DepartmentRepository,
+    @Inject(forwardRef(() => EmployeeRepository))
     private readonly employeeRepository: EmployeeRepository,
     private readonly redisService: RedisService,
   ) {}
