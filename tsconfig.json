@@ -19,6 +19,8 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "types": ["node", "express", "jest", "supertest"]
-  }
+    "types": ["node", "express", "jest", "supertest"],
+    "allowJs": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

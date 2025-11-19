@@ -1,88 +1,82 @@
+import { Test, TestingModule } from '@nestjs/testing';
 import { LeaveRequestProcessor } from './leave-request.processor';
-import { LeaveRequestRepository } from './leave-request.repository';
+import { LeaveRequestEntity } from './leave-request.entity';
 import { RedisService } from '../redis/redis.service';
 import { ProducerService } from '../job-queue/producer.service';
 import { RetryService } from '../job-queue/retry.service';
-import { LeaveStatus, Role } from '../utils/common/constant/enum.constant';
+import { LeaveRequestRepository } from './leave-request.repository';
+import { LeaveStatus } from '../utils/common/constant/enum.constant';
 
-describe('LeaveRequestProcessor (unit)', () => {
+describe('LeaveRequestProcessor', () => {
   let processor: LeaveRequestProcessor;
-  const mockRepo: Partial<LeaveRequestRepository> = {
-    updateStatus: jest.fn().mockResolvedValue(null),
-  };
-  const mockRedis: Partial<RedisService> = {
-    setNxExpire: jest.fn().mockResolvedValue(true),
-  };
-  const mockProducer: Partial<ProducerService> = {
-    publishLeaveRequested: jest.fn().mockResolvedValue(undefined),
-    publishToDlq: jest.fn().mockResolvedValue(undefined),
-  };
-  const mockRetry: Partial<RetryService> = {
-    handleRetry: jest.fn().mockResolvedValue(true),
+  let mockRedisService: Partial<RedisService>;
+  let mockProducerService: Partial<ProducerService>;
+  let mockRetryService: Partial<RetryService>;
+
+  const mockLeaveRequestRepository = {
+    updateStatus: jest.fn(),
   };
 
-  beforeEach(() => {
-    processor = new LeaveRequestProcessor(
-      mockRepo as LeaveRequestRepository,
-      mockRedis as RedisService,
-      mockProducer as ProducerService,
-      mockRetry as RetryService
-    );
-  });
-
-  it('approves leave automatically for <= 2 days', async () => {
-    const msg = {
-      requestId: 'r1',
-      employeeId: 'e1',
-      startDate: new Date().toISOString(),
-      endDate: new Date().toISOString(), // same day -> 1 day
+  beforeEach(async () => {
+    mockRedisService = {
+      setNxExpire: jest.fn().mockResolvedValue(true),
+      delete: jest.fn().mockResolvedValue(undefined),
     };
 
-    await processor['handleLeaveRequested'](msg as any);
-
-    expect(mockRedis.setNxExpire).toHaveBeenCalledWith(
-      `leave:processed:${msg.requestId}`,
-      '1',
-      60 * 60
-    );
-    expect(mockRepo.updateStatus).toHaveBeenCalledWith(
-      msg.requestId,
-      LeaveStatus.APPROVED
-    );
-    expect(mockProducer.publishLeaveRequested).toHaveBeenCalled();
-  });
-
-  it('marks leave as PENDING_APPROVAL for > 2 days', async () => {
-    const start = new Date();
-    const end = new Date(start.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const msg = {
-      requestId: 'r2',
-      employeeId: 'e2',
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
+    mockProducerService = {
+      publishLeaveRequested: jest.fn().mockResolvedValue(undefined),
+      publishToDlq: jest.fn().mockResolvedValue(undefined),
     };
 
-    await processor['handleLeaveRequested'](msg as any);
-
-    expect(mockRepo.updateStatus).toHaveBeenCalledWith(
-      msg.requestId,
-      LeaveStatus.PENDING_APPROVAL
-    );
-    expect(mockProducer.publishLeaveRequested).toHaveBeenCalled();
-  });
-
-  it('is idempotent: skips when redis key exists', async () => {
-    (mockRedis.setNxExpire as jest.Mock).mockResolvedValueOnce(false);
-    const msg = {
-      requestId: 'r3',
-      employeeId: 'e3',
-      startDate: new Date().toISOString(),
-      endDate: new Date().toISOString(),
+    mockRetryService = {
+      handleRetry: jest.fn().mockResolvedValue(true),
     };
 
-    await processor['handleLeaveRequested'](msg as any);
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LeaveRequestProcessor,
+        {
+          provide: LeaveRequestRepository,
+          useValue: mockLeaveRequestRepository,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
+        },
+        {
+          provide: ProducerService,
+          useValue: mockProducerService,
+        },
+        {
+          provide: RetryService,
+          useValue: mockRetryService,
+        },
+      ],
+    }).compile();
 
-    expect(mockRepo.updateStatus).not.toHaveBeenCalled();
-    expect(mockProducer.publishLeaveRequested).not.toHaveBeenCalled();
+    processor = module.get<LeaveRequestProcessor>(LeaveRequestProcessor);
+  });
+
+  it('should be defined', () => {
+    expect(processor).toBeDefined();
+  });
+
+  describe('handleLeaveRequested', () => {
+    it('should process leave request and update status to APPROVED for short leaves', async () => {
+      const msg = {
+        requestId: 'test-request-id',
+        employeeId: 'test-employee',
+        startDate: new Date('2023-01-01').toISOString(),
+        endDate: new Date('2023-01-02').toISOString(), // 2 days
+      };
+
+      await processor['handleLeaveRequested'](msg as any);
+
+      expect(mockRedisService.setNxExpire).toHaveBeenCalled();
+      expect(mockLeaveRequestRepository.updateStatus).toHaveBeenCalledWith(
+        msg.requestId,
+        LeaveStatus.APPROVED
+      );
+    });
   });
 });

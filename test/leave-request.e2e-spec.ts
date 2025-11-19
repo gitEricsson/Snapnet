@@ -1,59 +1,37 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
-import { LeaveRequestController } from '../src/leave-request/leave-request.controller';
-import { LeaveRequestService } from '../src/leave-request/leave-request.service';
-import { LeaveRequestRepository } from '../src/leave-request/leave-request.repository';
-import { EmployeeRepository } from '../src/employee/employee.repository';
-import { ProducerService } from '../src/job-queue/producer.service';
-import { APP_GUARD } from '@nestjs/core';
-import { CanActivate, ExecutionContext } from '@nestjs/common';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
+import { LeaveRequestModule } from '../src/leave-request/leave-request.module';
+import { EmployeeEntity } from '../src/employee/employee.entity';
+import { LeaveRequestEntity } from '../src/leave-request/leave-request.entity';
+import { testDbConfig } from './test/typeorm.config';
+import { LeaveStatus } from '../src/utils/common/constant/enum.constant';
 
-class AllowAllGuard implements CanActivate {
-  canActivate(ctx: ExecutionContext): boolean {
-    const req = ctx.switchToHttp().getRequest();
-    req.user = { id: 'u1', role: 'admin', employeeId: 'e1' };
-    return true;
-  }
-}
-
-describe('LeaveRequestController (e2e)', () => {
+describe('LeaveRequest (e2e)', () => {
   let app: INestApplication;
-  const mockEmployeeRepo: Partial<EmployeeRepository> = {
-    findById: jest.fn().mockResolvedValue({ id: 'e1' }),
-  };
-  const mockLeaveRepo: Partial<LeaveRequestRepository> = {
-    create: jest.fn().mockImplementation((p) => ({ ...p, id: 'lr1' })),
-    save: jest
-      .fn()
-      .mockImplementation(async (entity) => ({ ...entity, id: 'lr1' })),
-    hasDateConflict: jest.fn().mockResolvedValue(false),
-  };
-  const mockProducer = {
-    publishLeaveRequested: jest.fn().mockResolvedValue(undefined),
-  };
+  const mockJwtAuthGuard = {
+  canActivate: jest.fn(() => true),
+};
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      controllers: [LeaveRequestController],
-      providers: [
-        LeaveRequestService,
-        { provide: LeaveRequestRepository, useValue: mockLeaveRepo },
-        { provide: EmployeeRepository, useValue: mockEmployeeRepo },
-        { provide: ProducerService, useValue: mockProducer },
-        { provide: APP_GUARD, useClass: AllowAllGuard }, // bypass auth/roles
+    const moduleFixture = await Test.createTestingModule({
+      imports: [
+        TypeOrmModule.forRoot({
+          ...testDbConfig,
+          entities: [LeaveRequestEntity, EmployeeEntity],
+        }),
+        LeaveRequestModule,
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue(mockJwtAuthGuard)
+      // .useValue({ canActivate: () => true })
+      .compile();
 
-    app = moduleRef.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      })
-    );
-    app.setGlobalPrefix('api');
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
   });
 
@@ -61,22 +39,21 @@ describe('LeaveRequestController (e2e)', () => {
     await app.close();
   });
 
-  it('POST /api/leave-requests publishes leave.requested', async () => {
-    const payload = {
-      employeeId: 'e1',
-      startDate: new Date().toISOString(),
-      endDate: new Date().toISOString(),
-      status: 'PENDING',
+  it('/leave-requests (POST) - should create a leave request', async () => {
+    const leaveRequestData = {
+      employeeId: '550e8400-e29b-41d4-a716-446655440000', // Valid UUID
+      startDate: '2023-01-01',
+      endDate: '2023-01-02',
+      status: LeaveStatus.PENDING,
     };
 
-    const res = await request(app.getHttpServer())
-      .post('/api/leave-requests')
-      .send(payload)
+    const response = await request(app.getHttpServer())
+      .post('/leave-requests')
+      .set('Authorization', 'Bearer test-token') // Add auth header
+      .send(leaveRequestData)
       .expect(201);
 
-    expect(res.body.statusCode).toBe(201);
-    expect(mockProducer.publishLeaveRequested).toHaveBeenCalled();
-    expect(mockLeaveRepo.create).toHaveBeenCalled();
-    expect(mockLeaveRepo.save).toHaveBeenCalled();
+    expect(response.body).toHaveProperty('data.id');
+    expect(response.body.data.status).toBe('PENDING');
   });
 });
