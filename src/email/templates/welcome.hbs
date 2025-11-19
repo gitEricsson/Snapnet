@@ -1,0 +1,24 @@
+{{> head}}
+  <h2>Welcome to [Company Name]!</h2>
+  <h3>Hello {{name}}!</h3>
+  <p>We're thrilled to have you join the [Company Name] community! You're now part of a platform that connects employees with their departments.</p>
+  
+  <p>With [Company Name], you can:</p>
+  <ul>
+    <li>📝 Manage your employee information</li>
+    <li>📊 Track your team's performance and productivity</li>
+    <li>📅 Manage leave requests and view upcoming holidays</li>
+    <li>📇 Connect with your department's supervisor and team members</li>
+  </ul>
+  
+  <div class='action-box'>
+    <a href='{{dashboardUrl}}' style="color: #fff; text-decoration: none;">Get Started</a>
+  </div>
+  
+  <p style="margin-top: 24px;">If you're a manager, approve or deny leave requests to manage your team's workload.</p>
+  
+  {{> spam-reminder}}
+  <p>Questions? Our support team is here to help!</p>
+  <p style="font-size: 12px; color: #999;">This is an automated message, please do not reply.</p>
+{{> conclusion}}
+{{> footer}}
